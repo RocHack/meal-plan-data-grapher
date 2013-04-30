@@ -1,0 +1,7 @@
+{
+  "url": "http://localhost:5984/mealplandata",
+  "auth": {
+    "user": "username",
+    "pass": "password"
+  }
+}

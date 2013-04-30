@@ -1,0 +1,38 @@
+svg {
+  font: 12px sans-serif;
+}
+
+path {
+  fill: steelblue;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.brush .extent {
+  stroke: #fff;
+  fill-opacity: .125;
+  shape-rendering: crispEdges;
+}
+
+.error {
+  color: red;
+}
+
+.success {
+  color: green;
+}
+
+#loader {
+  display: none;
+  vertical-align: middle;
+  padding-left: .25em;
+}
+
+.loading #loader {
+  display: inline-block;
+}

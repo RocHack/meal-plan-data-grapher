@@ -1,0 +1,34 @@
+{
+  "name": "mealplandata",
+  "version": "0.0.1",
+  "description": "Fetch, store, and graph meal plan transaction history",
+  "dependencies": {
+    "coffee-script": "1.x",
+    "request": "~2.20.0",
+    "couchapp": "~0.9.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "coffee server.coffee"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/RocHack/mealplangraph.git"
+  },
+  "gitHead": "14d78d25e2a4895f53dca53f4738bef4ab74f5ac",
+  "readmeFilename": "README.md",
+  "keywords": [
+    "couchdb",
+    "blackboard",
+    "rochester"
+  ],
+  "author": {
+    "name": "Charles Lehner",
+    "email": "clehner@cs.rochester.edu",
+    "url": "https://celehner.com"
+  },
+  "contributors": [
+  ],
+  "license": "MIT"
+}

@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Meal Plan Data Grapher</title>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="/static/base.css">
+    <link rel="stylesheet" href="styles.css">
+    <script>
+      if (location.protocol == 'http:'
+        && location.host != 'localhost') {
+        location.protocol = 'https';
+      }
+    </script>
+    <script src="d3/d3.js"></script>
+  </head>
+  <body>
+    <h1>Meal Plan Data Grapher</h1>
+    <p>
+    <!--Showing data from <span id="num_showing">0</span> users.-->
+      <a id="show_all_link" href="#">Show all</a>
+      <a id="get_data_link" href="login">Get your data</a>
+    </p>
+    <select id="fund_select">
+      <option value="1" selected="selected">Declining</option>
+      <option value="0">All</option>
+      <option value="2">Uros</option>
+    </select>
+    <div id="graph"></div>
+    <form id="login_form" action="login" method="post">
+      <input id="netid" type="text" placeholder="Net ID">
+      <input id="password" type="password" placeholder="Password">
+      <input id="login_btn" type="submit" value="Get your data">
+      <img id="loader" src="loading.gif">
+      <p id="response_note"></p>
+    </form>
+    <script src="script.js"></script>
+  </body>
+</html>
