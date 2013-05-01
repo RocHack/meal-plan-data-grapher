@@ -33,4 +33,7 @@ Installation
     Copy `nginx/mealplandata.conf` into your `nginx.conf` or `nginx/sites-enabled/`
     or incorporate it into an existing server block under a subdirectory.
 
+    Note: if you use this nginx configuration, you can remove the
+    `addAttachments` line in app.coffee, since nginx will be serving the
+    static attachments.
 

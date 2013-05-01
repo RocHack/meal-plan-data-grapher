@@ -54,7 +54,7 @@ couch =
 
   saveTransactions: (user, startDate, endDate, transactions, cb) ->
     console.log 'saving transactions', transactions.length,
-      transactions[0..1], transactions[-1..]
+      transactions[0], transactions[-1..]
 
     # base the doc id on the dates of the transactions rather than the request
     if transactions.length > 0
@@ -88,7 +88,7 @@ salt = 'piqn430984unawnu;pzsd'
 # hash the net id so that users can be pseudonymous
 hashNetID = (netid) ->
   sum = crypto.createHmac 'sha1', salt
-  sum.update netid
+  sum.update netid.toLowerCase()
   sum.digest 'hex'
 
 fail = (res, status, msg) ->
@@ -119,7 +119,6 @@ class BBSession
 
     # make pseudonym from username
     @user = hashNetID @netid
-    console.log 'hash for', @netid, 'is', @user
 
   # login to blackboard
   auth: (pass, cb) ->
@@ -209,13 +208,13 @@ server = http.createServer (req, res) ->
     user = session.user
 
     # log in to blackboard with the credentials
-    console.log 'logging in', netid
+    console.log 'logging in', user
     session.auth password, (win) ->
       # destroy the evidence
       password = null
       if !win
         return fail res, 401, 'unable to login'
-      console.log 'logged in', netid
+      console.log 'logged in', user
 
       # authenticate to sequoia
       console.log 'getting sequoia auth'
@@ -236,11 +235,18 @@ server = http.createServer (req, res) ->
               return fail res, 500, error, 'unable to get transactions'
             console.log 'got transactions'
 
-            # save transactions to db
-            end = new Date
-            couch.saveTransactions user, start, end, transactions, (error) ->
-              if error
-                return fail res, 500, error, 'unable to save transactions'
+            # save transactions to db (if any)
+            ( (next) ->
+              if transactions.length > 0
+                end = new Date
+                couch.saveTransactions user, start, end, transactions, (err) ->
+                  if err
+                    return fail res, 500, err, 'unable to save transactions'
+                  next()
+              else
+                console.log 'no new transactions'
+                next()
+            ) () ->
 
               # return to user
               success res,

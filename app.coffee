@@ -42,26 +42,30 @@ ddoc.validate_doc_update = (newDoc, oldDoc, userCtx) ->
 ddoc.views =
   charges:
     map: (doc) ->
+      user = doc.user
       doc.transactions.forEach (transaction) ->
-      #for transaction in doc.transactions
         # only count charges
         if transaction.Type != 'Charge' then return
+        fund = transaction.FundCode
         d = new Date transaction.TransactionDateTimeStr
         year = d.getFullYear()
         week = Math.round (d - new Date year, 0, 1) / 86400000 / 7
-        key = [transaction.FundCode
-          year, week, d.getDay(), d.getHours()]
+        minutes = d.getMinutes() + d.getHours() * 60
+        key = [year, week, d.getDay(), minutes]
         # remove trailing number (sub-location)
         location = transaction.Location.replace /\s*[0-9]*$/, ''
         amount = -transaction.AmountInDollars
+        # emit both with and without user, and fund code
         value = {}
         value[location] = amount
-        # emit both with and without user
-        emit [doc.user].concat(key), value
-        # make it negative so they cancel out. ha! ha!
-        value2 = {}
-        value2[location] = -amount
-        emit [null].concat(key), value2
+        # make it negative so the wildcards cancel out
+        antivalue = {}
+        antivalue[location] = -amount
+
+        emit [user, fund].concat(key), value
+        emit [user,    0].concat(key), antivalue
+        emit [null, fund].concat(key), antivalue
+        emit [null,    0].concat(key), value
 
     reduce: (keys, values, rereduce) ->
       totals = {}
@@ -77,24 +81,42 @@ ddoc.views =
             delete totals[location]
       return totals
 
-  ###
+  charges_all:
+    map: (doc) ->
+      user = doc.user
+      doc.transactions.forEach (transaction) ->
+        # only count charges
+        if transaction.Type != 'Charge' then return
+        fund = transaction.FundCode
+        d = new Date transaction.TransactionDateTimeStr
+        year = d.getFullYear()
+        week = Math.round (d - new Date year, 0, 1) / 86400000 / 7
+        key = [year, week, d.getDay()]
+        amount = -transaction.AmountInDollars
+        # emit both with and without user, and fund code
+        # make it negative so the wildcards cancel out
+        emit [user, fund].concat(key), amount
+        emit [user,    0].concat(key), -amount
+        emit [null, fund].concat(key), -amount
+        emit [null,    0].concat(key), amount
+    reduce: '_sum'
+
   population:
     map: (doc) ->
-      y = m = d = 0
+      year2 = month2 = day2 = 0
       for transaction in doc.transactions
         d = new Date transaction.TransactionDateTimeStr
         year = d.getFullYear()
         month = d.getMonth()
         day = d.getDate()
-        if d != day or m != month or y != year
-          d = day
-          m = month
-          y = year
-          key = [transaction.FundCode, year, month, day, 1]
+        if day != day2 or month != month2 or year != year2
+          year2 = year
+          month2 = month
+          day2 = day
+          key = [transaction.FundCode, year, month, day]
           emit [doc.user].concat(key)
           emit [null].concat(key)
     reduce: '_count'
-  ###
 
   last_fetch:
     map: (doc) ->

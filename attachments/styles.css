@@ -19,6 +19,10 @@ path {
   shape-rendering: crispEdges;
 }
 
+.bars rect {
+  fill: steelblue;
+}
+
 .error {
   color: red;
 }
@@ -36,3 +40,4 @@ path {
 .loading #loader {
   display: inline-block;
 }
+

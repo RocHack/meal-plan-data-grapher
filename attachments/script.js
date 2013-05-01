@@ -1,6 +1,21 @@
 var couchURL = "design/",
     user = false;
 
+function debounce(fn, ms) {
+  var timeout, context, args;
+  function exec() {
+    fn.apply(context, args);
+  }
+  return function () {
+    context = this;
+    args = arguments;
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    timeout = setTimeout(exec, ms || 50);
+  };
+}
+
 function parseQueryString(qs) {
   var query = {};
   qs.split("&").forEach(function (pair) {
@@ -55,6 +70,9 @@ var xAxis = d3.svg.axis().scale(x).orient("bottom"),
 var brush = d3.svg.brush()
     .x(x2)
     .on("brush", brushed);
+
+var binWidth = 0,
+    binDuration = 0;
 
 /*
 var area = d3.svg.area()
@@ -113,6 +131,9 @@ var xAxisG = focus.append("g")
 var yAxisG = focus.append("g")
     .attr("class", "y axis");
 
+var contextBars = context.append("g")
+    .attr("class", "bars");
+
 var xAxisG2 = context.append("g")
     .attr("class", "x axis")
     .attr("transform", "translate(0," + height2 + ")");
@@ -124,15 +145,93 @@ context.append("g")
     .attr("y", -6)
     .attr("height", height2 + 7);
 
-var fundCode = 0;
+var fundCode = 1;
 
+// update the context graph
 function update() {
-  var key = [user];
-  if (fundCode) key.push(fundCode);
-  couch("_view/charges", {
+  var key = [user, fundCode];
+  couch("_view/charges_all", {
     group_level: 4,
     startkey: key,
     endkey: key.concat({})
+  }, gotChargesAll);
+}
+
+function gotChargesAll(error, resp) {
+  if (error) {
+    showResponse({error: error});
+    return;
+  }
+
+  var data = resp.rows;
+
+  data.forEach(function(row) {
+    var year = row.key[2];
+    var day = row.key[4] || 0;
+    var week = row.key[3];
+    row.date = new Date(year, 0, 7 * week + day);
+    row.amount = Math.abs(row.value);
+  });
+
+  if (!didBrush) {
+    x.domain(d3.extent(data.map(function(d) { return d.date; })));
+    x2.domain(x.domain());
+  }
+  y2.domain([0, d3.max(data, function(d) { return d.amount; })]);
+
+  var d = new Date(),
+      duration = 86400000 * 7;
+      w = (x2(d) - x2(d - duration)),
+      squeeze = 1 - w/width;
+  var rect = contextBars.selectAll("rect")
+      .data(data);
+  rect.enter().append("rect");
+  rect.attr("width", w * squeeze)
+      .attr("height", function(d) { return height2 - y2(d.amount); })
+      .attr("x", function(d) { return x2(d.date) * squeeze; })
+      .attr("y", function(d) { return y2(d.amount); });
+  rect.exit().remove();
+
+  updateCharges();
+}
+
+// update main chart
+function updateCharges() {
+  var startDate = x.domain()[0],
+      endDate = x.domain()[1],
+      startYear = startDate.getFullYear(),
+      endYear = endDate.getFullYear(),
+      startWeek = Math.round((startDate - new Date(startYear, 0, 1)) / 86400000 / 7),
+      endWeek = Math.round((endDate - new Date(endYear, 0, 1)) / 86400000 / 7);
+
+  binWidth = 30;// * width/svg.attr("width");
+  binDuration = x.invert(binWidth) - x.domain()[0];
+
+  var binMinutes = binDuration / 60000,
+      binDays = binMinutes / 1440,
+      binWeeks = binDays / 7,
+      granularity = 0;
+  if (binWeeks > 1) {
+    binWeeks = Math.floor(binWeeks);
+    binDays = binWeeks * 7;
+    binMinutes = binDays * 1440;
+	granularity = 1;
+  } else if (binDays > 1) {
+    binDays = Math.floor(binDays);
+    binMinutes = binDays * 1440;
+    granularity = 2;
+  } else {
+    binMinutes = Math.floor(binMinutes);
+    granularity = 3;
+  }
+  binDuration = binMinutes * 60000;
+  binWidth = x(startDate) - x(startDate - binDuration);
+  //console.log(binWidth, binDuration, binMinutes, binDays, binWeeks, granularity);
+
+  couch("_view/charges", {
+    group_level: 3 + granularity,
+    startkey: [user, fundCode, startYear, startWeek],
+    endkey: [user, fundCode, endYear, endWeek]
   }, gotCharges);
 }
 
@@ -149,15 +248,17 @@ function gotCharges(error, resp) {
   }
 
   rows.forEach(function(row) {
-    //row.date = new Date(row.key[2], row.key[3], row.key[4] || 0);
-    row.date = new Date(row.key[2], 0, row.key[3] * 7 + (row.key[4] || 0));
+    var day = row.key[4] || 0;
+    var week = row.key[3];
+    var minutes = row.key[5] || 0;
+    row.date = new Date(row.key[2], 0, 7 * week + day, 0, minutes);
   });
 
   /*
   var layers = [],
       layersByLocation = {};
   rows.forEach(function(row) {
-    var sign = row.key[0] === null ? -1 : 1;
+    var sign = row.key[0] === 0 ? -1 : 1;
     for (var location in row.value) {
       var amount = sign * row.value[location],
           layer = layersByLocation[location];
@@ -187,43 +288,66 @@ function gotCharges(error, resp) {
     locations.push(location);
   }
 
-  var sign = rows[0] && rows[0].key[0] === null ? -1 : 1;
   layers = locations.map(function(location) {
     return {
       name: location,
+      color: color(location),
       values: rows.map(function(row) {
         return {
           date: row.date,
-          name: location,
-          amount: sign * row.value[location] || 0
+          name: location, // no
+          amount: Math.abs(row.value[location]) || 0
         };
       })
     };
   });
 
+  //console.log(layers);
+
+  // bin it
+  layers = layers.map(function (layer) {
+    var values = [],
+        prevValue;
+    layer.values.forEach(function (value) {
+      if (prevValue && (value.date - prevValue.date) < binDuration) {
+        prevValue.amount += value.amount;
+      } else {
+        prevValue = {
+          date: new Date(Math.floor(value.date/binDuration) * binDuration),
+          //date: value.date,
+          name: value.name, // no
+          amount: value.amount
+        };
+        //if (isNaN(a)) console.log(value.date, binDuration);
+        values.push(prevValue);
+      }
+    });
+    return {
+      name: layer.name,
+      color: layer.color,
+      values: values
+    };
+  });
+
+  //console.log('binned', layers);
+
   charges = stack(layers);
 
-  x.domain(d3.extent(rows.map(function(d) { return d.date; })));
   y.domain([0, d3.max(layers[layers.length-1].values, function(d) { return d.y0 + d.y; })]);
-  x2.domain(x.domain());
-  y2.domain(y.domain());
 
   var layer = focus.selectAll(".layer")
       .data(charges);
   layer.enter().append("g")
       .attr("class", "layer")
-      .style("fill", function(d, i) { return color(i); });
+      .style("fill", function(d) { return d.color; });
   layer.exit().remove();
 
-  var d = new Date(),
-      //w = 2;
-      w = 7 * (x(d3.time.tuesday(d)) - x(d3.time.monday(d))),
-      squeeze = 1 - w/width;
+  var squeeze = 1 - w/width;
 
   var rect = layer.selectAll("rect")
       .data(function (d) { return d.values; });
-  rect.enter().append("rect")
-  rect.attr("width", w)
+  rect.enter().append("rect");
+  rect.attr("width", binWidth * squeeze)
       .attr("height", function(d) { return y(d.y0) - y(d.y0 + d.y); })
       .attr("x", function(d) { return x(d.date) * squeeze; })
       .attr("y", function(d) { return y(d.y0 + d.y); })
@@ -235,7 +359,7 @@ function gotCharges(error, resp) {
   xAxis2(xAxisG2);
 
   // Add a rect for each date.
-/*
+  /*
   var rect = layer.selectAll("rect")
       .data(Object)
     .enter().append("svg:rect")
@@ -243,7 +367,7 @@ function gotCharges(error, resp) {
       .attr("y", function(d) { return -y(d.y0) - y(d.y); })
       .attr("height", function(d) { return y(d.y); })
       .attr("width", x.rangeBand());
-*/
+  */
 
   /*
   layer.append("path")
@@ -255,11 +379,17 @@ function gotCharges(error, resp) {
   */
 }
 
+var updateChargesDebounced = debounce(updateCharges);
+var didBrush = false;
 function brushed() {
+  didBrush = true;
   x.domain(brush.empty() ? x2.domain() : brush.extent());
-  //focus.select("path").attr("d", area);
   focus.select(".x.axis").call(xAxis);
+
+  updateChargesDebounced();
 }
+
+// Login stuff
 
 var note = d3.select("#response_note");
 function showResponse(response) {
@@ -284,7 +414,6 @@ loginForm.on("submit", function() {
       '&password=' + encodeURIComponent(d3.select("#password").node().value),
     function (error, resp) {
       loginForm.classed("loading", false);
-      //console.log('1', error, resp)
       if (error) {
         try {
           resp = xhrJSON(error);
@@ -296,7 +425,7 @@ loginForm.on("submit", function() {
       } else {
         var numTransactionsFetched = resp.num_transactions;
         var user = resp.user;
-        showResponse({success: 'It worked!'});
+        showResponse({success: 'It worked! Now wait for your data to appear.'});
         setHashItem("user", user);
       }
     });
@@ -324,3 +453,4 @@ d3.select("#fund_select").on("change", function() {
 });
 
 updateHash();
+
