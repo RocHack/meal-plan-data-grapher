@@ -3,5 +3,6 @@
   "auth": {
     "user": "username",
     "pass": "password"
-  }
+  },
+  "include_attachments": true
 }

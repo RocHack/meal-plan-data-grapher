@@ -1,5 +1,6 @@
 couchapp = require 'couchapp'
 path = require 'path'
+couchCred = require './couch-cred'
 
 ddoc =
   _id: '_design/mealplandata'
@@ -133,7 +134,8 @@ ddoc.views =
     reduce: (keys, values, rereduce) ->
       Math.max.apply Math, values
 
-couchapp.loadAttachments ddoc, path.join __dirname, 'attachments'
+if couchCred.include_attachments
+  couchapp.loadAttachments ddoc, path.join __dirname, 'attachments'
 
 module.exports = ddoc
 
