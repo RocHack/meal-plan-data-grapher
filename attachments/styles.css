@@ -1,3 +1,16 @@
+body {
+  margin: 1em;
+}
+
+/* layout */
+
+#fund_select {
+  /*display: inline-block;*/
+  float: right;
+}
+
+/* graphs */
+
 svg {
   font: 12px sans-serif;
 }
@@ -21,7 +34,10 @@ path {
 
 .bars rect {
   fill: steelblue;
+  stroke: steelblue;
 }
+
+/* loading/login */
 
 .error {
   color: red;

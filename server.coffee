@@ -58,12 +58,14 @@ couch =
 
     # base the doc id on the dates of the transactions rather than the request
     if transactions.length > 0
-      firstDate = new Date transactions[0].TransactionDateTime
-      lastDate = new Date transactions[transactions.length-1].TransactionDateTime
+      firstDate = new Date transactions[0].TransactionDateTimeStr
+      lastDate = new Date transactions[transactions.length-1].TransactionDateTimeStr
     else
       firstDate = startDate
       lastDate = endDate
     id = hash [user, +firstDate, +lastDate].join '-'
+
+    #console.log id, firstDate, lastDate, startDate, endDate
 
     doc =
       _id: id

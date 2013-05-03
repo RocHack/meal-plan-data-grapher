@@ -58,8 +58,8 @@ var margin = {top: 10, right: 10, bottom: 100, left: 40},
 
 var color = d3.scale.category20c();
 
-var x = d3.time.scale().rangeRound([0, width]),
-    x2 = d3.time.scale().rangeRound([0, width]),
+var x = d3.time.scale().range([0, width]),
+    x2 = d3.time.scale().range([0, width]),
     y = d3.scale.linear().range([height, 0]),
     y2 = d3.scale.linear().range([height2, 0]);
 
@@ -167,8 +167,8 @@ function gotChargesAll(error, resp) {
 
   data.forEach(function(row) {
     var year = row.key[2];
-    var day = row.key[4] || 0;
     var week = row.key[3];
+    var day = row.key[4] || 0;
     row.date = new Date(year, 0, 7 * week + day);
     row.amount = Math.abs(row.value);
   });
@@ -181,14 +181,13 @@ function gotChargesAll(error, resp) {
 
   var d = new Date(),
       duration = 86400000 * 7;
-      w = (x2(d) - x2(d - duration)),
-      squeeze = 1 - w/width;
+      w = (x2(d) - x2(d - duration));
   var rect = contextBars.selectAll("rect")
       .data(data);
   rect.enter().append("rect");
-  rect.attr("width", w * squeeze)
+  rect.attr("width", w)
       .attr("height", function(d) { return height2 - y2(d.amount); })
-      .attr("x", function(d) { return x2(d.date) * squeeze; })
+      .attr("x", function(d) { return x2(d.date); })
       .attr("y", function(d) { return y2(d.amount); });
   rect.exit().remove();
 
@@ -204,7 +203,7 @@ function updateCharges() {
       startWeek = Math.round((startDate - new Date(startYear, 0, 1)) / 86400000 / 7),
       endWeek = Math.round((endDate - new Date(endYear, 0, 1)) / 86400000 / 7);
 
-  binWidth = 30;// * width/svg.attr("width");
+  binWidth = 30 * width/svg.attr("width");
   binDuration = x.invert(binWidth) - x.domain()[0];
 
   var binMinutes = binDuration / 60000,
@@ -215,7 +214,7 @@ function updateCharges() {
     binWeeks = Math.floor(binWeeks);
     binDays = binWeeks * 7;
     binMinutes = binDays * 1440;
-	granularity = 1;
+    granularity = 1;
   } else if (binDays > 1) {
     binDays = Math.floor(binDays);
     binMinutes = binDays * 1440;
@@ -226,13 +225,13 @@ function updateCharges() {
   }
   binDuration = binMinutes * 60000;
   binWidth = x(startDate) - x(startDate - binDuration);
-  //console.log(binWidth, binDuration, binMinutes, binDays, binWeeks, granularity);
 
-  couch("_view/charges", {
+  couch("_view/charges", a={
     group_level: 3 + granularity,
     startkey: [user, fundCode, startYear, startWeek],
-    endkey: [user, fundCode, endYear, endWeek]
+    endkey: [user, fundCode, endYear, endWeek+1]
   }, gotCharges);
+  //console.log('getting', a.startkey, a.endkey, startDate, endDate);
 }
 
 function gotCharges(error, resp) {
@@ -248,19 +247,19 @@ function gotCharges(error, resp) {
   }
 
   rows.forEach(function(row) {
-    var day = row.key[4] || 0;
-    var week = row.key[3];
+    var day = (row.key[4] || 0) + 1;
+    var week = row.key[3] - 1;
     var minutes = row.key[5] || 0;
     row.date = new Date(row.key[2], 0, 7 * week + day, 0, minutes);
+    //console.log(row.key, row.date, row.value);
   });
 
   /*
   var layers = [],
       layersByLocation = {};
   rows.forEach(function(row) {
-    var sign = row.key[0] === 0 ? -1 : 1;
     for (var location in row.value) {
-      var amount = sign * row.value[location],
+      var amount = Math.abs(row.value[location]),
           layer = layersByLocation[location];
       if (!layer) {
         layer = layersByLocation[location] = {
@@ -288,23 +287,26 @@ function gotCharges(error, resp) {
     locations.push(location);
   }
 
-  layers = locations.map(function(location) {
+  layers = locations.map(function(location, i) {
+    var total = 0;
+    var values = rows.map(function(row) {
+      var amount = Math.abs(row.value[location]) || 0;
+      total += amount;
+      return {
+        date: row.date,
+        name: location, // no
+        amount: amount
+      };
+    });
     return {
       name: location,
-      color: color(location),
-      values: rows.map(function(row) {
-        return {
-          date: row.date,
-          name: location, // no
-          amount: Math.abs(row.value[location]) || 0
-        };
-      })
+      color: color(i),
+      values: values,
+      total: total
     };
   });
 
-  //console.log(layers);
-
-  // bin it
+  // re-bin
   layers = layers.map(function (layer) {
     var values = [],
         prevValue;
@@ -318,7 +320,6 @@ function gotCharges(error, resp) {
           name: value.name, // no
           amount: value.amount
         };
-        //if (isNaN(a)) console.log(value.date, binDuration);
         values.push(prevValue);
       }
     });
@@ -336,20 +337,20 @@ function gotCharges(error, resp) {
   y.domain([0, d3.max(layers[layers.length-1].values, function(d) { return d.y0 + d.y; })]);
 
   var layer = focus.selectAll(".layer")
+      .attr("clip-path", "url(#clip)")
       .data(charges);
   layer.enter().append("g")
       .attr("class", "layer")
+      //.style("stroke", function(d) { return d.color; })
       .style("fill", function(d) { return d.color; });
   layer.exit().remove();
-
-  var squeeze = 1 - w/width;
 
   var rect = layer.selectAll("rect")
       .data(function (d) { return d.values; });
   rect.enter().append("rect");
-  rect.attr("width", binWidth * squeeze)
+  rect.attr("width", binWidth)
       .attr("height", function(d) { return y(d.y0) - y(d.y0 + d.y); })
-      .attr("x", function(d) { return x(d.date) * squeeze; })
+      .attr("x", function(d) { return x(d.date); })
       .attr("y", function(d) { return y(d.y0 + d.y); })
       .attr("data-name", function(d) { return d.name; });
   rect.exit().remove();
@@ -357,6 +358,34 @@ function gotCharges(error, resp) {
   xAxis(xAxisG);
   yAxis(yAxisG);
   xAxis2(xAxisG2);
+
+  var legend = svg.selectAll(".legend")
+      .data(layers);
+
+  var legendEnter = legend.enter().append("g")
+      .attr("class", "legend")
+      .attr("transform", function(d, i) {
+        return "translate(50," + i * 20 + ")";
+      });
+
+  legendEnter.append("rect")
+      .attr("x", width - 18)
+      .attr("width", 18)
+      .attr("height", 18);
+
+  legendEnter.append("text")
+      .attr("x", width - 24)
+      .attr("y", 9)
+      .attr("dy", ".35em")
+      .style("text-anchor", "end");
+
+  legend.exit().remove();
+
+  legend.select("rect")
+      .style("fill", function(d) { return d.color; });
+
+  legend.select("text")
+      .text(function(d) { return d.name; });
 
   // Add a rect for each date.
   /*
@@ -425,7 +454,7 @@ loginForm.on("submit", function() {
       } else {
         var numTransactionsFetched = resp.num_transactions;
         var user = resp.user;
-        showResponse({success: 'It worked! Now wait for your data to appear.'});
+        showResponse({success: numTransactionsFetched + ' new transactions fetched! Now wait for your data to appear.'});
         setHashItem("user", user);
       }
     });

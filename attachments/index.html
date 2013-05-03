@@ -19,12 +19,12 @@
     <!--Showing data from <span id="num_showing">0</span> users.-->
       <a id="show_all_link" href="#">Show all</a>
       <a id="get_data_link" href="login">Get your data</a>
+      <select id="fund_select">
+        <option value="1" selected="selected">Declining</option>
+        <option value="0">All</option>
+        <option value="2">Uros</option>
+      </select>
     </p>
-    <select id="fund_select">
-      <option value="1" selected="selected">Declining</option>
-      <option value="0">All</option>
-      <option value="2">Uros</option>
-    </select>
     <div id="graph"></div>
     <form id="login_form" action="login" method="post">
       <input id="netid" type="text" placeholder="Net ID">

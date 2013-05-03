@@ -49,11 +49,16 @@ ddoc.views =
         fund = transaction.FundCode
         d = new Date transaction.TransactionDateTimeStr
         year = d.getFullYear()
-        week = Math.round (d - new Date year, 0, 1) / 86400000 / 7
+        dayOfYear = Math.round (d - new Date year, 0, 1) / 86400000
+        week = Math.round dayOfYear / 7
+        day = dayOfYear % 7
         minutes = d.getMinutes() + d.getHours() * 60
-        key = [year, week, d.getDay(), minutes]
+        key = [year, week, day, minutes]
         # remove trailing number (sub-location)
         location = transaction.Location.replace /\s*[0-9]*$/, ''
+        # fix weird location
+        if 0 == location.indexOf 'zzia11'
+          location = location.replace /^zzia11 (.*?)(?: - .*)?$/, '$1'
         amount = -transaction.AmountInDollars
         # emit both with and without user, and fund code
         value = {}
@@ -90,8 +95,10 @@ ddoc.views =
         fund = transaction.FundCode
         d = new Date transaction.TransactionDateTimeStr
         year = d.getFullYear()
-        week = Math.round (d - new Date year, 0, 1) / 86400000 / 7
-        key = [year, week, d.getDay()]
+        dayOfYear = Math.round (d - new Date year, 0, 1) / 86400000
+        week = Math.round dayOfYear / 7
+        day = dayOfYear % 7
+        key = [year, week, day]
         amount = -transaction.AmountInDollars
         # emit both with and without user, and fund code
         # make it negative so the wildcards cancel out
