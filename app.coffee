@@ -57,8 +57,10 @@ ddoc.views =
         # remove trailing number (sub-location)
         location = transaction.Location.replace /\s*[0-9]*$/, ''
         # fix weird location
-        if 0 == location.indexOf 'zzia11'
-          location = location.replace /^zzia11 (.*?)(?: - .*)?$/, '$1'
+        location = location.replace /^zzia11 (.*?)(?: - .*)?$/, '$1'
+        # consolidate laundry and vending
+        location = location.replace /^Laundry .*$/, 'Laundry'
+        location = location.replace /^VR .*$/, 'Vending Machine'
         amount = -transaction.AmountInDollars
         # emit both with and without user, and fund code
         value = {}
