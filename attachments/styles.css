@@ -9,6 +9,28 @@ body {
   float: right;
 }
 
+#login_form {
+  margin: 1em 1em 0 0;
+  float: left;
+}
+
+/* legend */
+
+#legend li {
+  display: inline-block;
+  font-size: .8em;
+  width: 12em;
+  margin: 0;
+}
+
+#legend .icon {
+  display: inline-block;
+  width: 1.2em;
+  height: 1.2em;
+  margin-right: .25em;
+  vertical-align: middle;
+}
+
 /* graphs */
 
 svg {

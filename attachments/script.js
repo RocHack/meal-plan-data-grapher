@@ -45,11 +45,6 @@ function couch(path, query, cb) {
   d3.json(couchPath(path, query), cb);
 }
 
-d3.select("#get_data_link").on("click", function () {
-  d3.event.preventDefault();
-  d3.select("#netid").node().focus();
-});
-
 var margin = {top: 10, right: 10, bottom: 100, left: 40},
     margin2 = {top: 330, right: 10, bottom: 20, left: 40},
     width = 960 - margin.left - margin.right,
@@ -74,19 +69,7 @@ var brush = d3.svg.brush()
 var binWidth = 0,
     binDuration = 0;
 
-/*
-var area = d3.svg.area()
-    .interpolate("monotone")
-    .x(function(d) { return x(d.date); })
-    .y0(height)
-    .y1(function(d) { return y(d.y); });
-
-var area2 = d3.svg.area()
-    .interpolate("monotone")
-    .x(function(d) { return x2(d.date); })
-    .y0(height2)
-    .y1(function(d) { return y2(d.price); });
-*/
+var legendContainer = d3.select("#legend");
 
 var w = width + margin.left + margin.right,
     h = height + margin.top + margin.bottom;
@@ -359,53 +342,22 @@ function gotCharges(error, resp) {
   yAxis(yAxisG);
   xAxis2(xAxisG2);
 
-  var legend = svg.selectAll(".legend")
+  var legend = legendContainer.selectAll("li")
       .data(layers);
 
-  var legendEnter = legend.enter().append("g")
-      .attr("class", "legend")
-      .attr("transform", function(d, i) {
-        return "translate(50," + i * 20 + ")";
-      });
-
-  legendEnter.append("rect")
-      .attr("x", width - 18)
-      .attr("width", 18)
-      .attr("height", 18);
-
-  legendEnter.append("text")
-      .attr("x", width - 24)
-      .attr("y", 9)
-      .attr("dy", ".35em")
-      .style("text-anchor", "end");
+  var legendEnter = legend.enter().append("li");
+  legendEnter.append("span")
+      .attr("class", "icon");
+  legendEnter.append("span")
+      .attr("class", "text");
 
   legend.exit().remove();
 
-  legend.select("rect")
-      .style("fill", function(d) { return d.color; });
+  legend.select(".icon")
+      .style("background-color", function(d) { return d.color; });
 
-  legend.select("text")
+  legend.select(".text")
       .text(function(d) { return d.name; });
-
-  // Add a rect for each date.
-  /*
-  var rect = layer.selectAll("rect")
-      .data(Object)
-    .enter().append("svg:rect")
-      .attr("x", function(d) { return x(d.x); })
-      .attr("y", function(d) { return -y(d.y0) - y(d.y); })
-      .attr("height", function(d) { return y(d.y); })
-      .attr("width", x.rangeBand());
-  */
-
-  /*
-  layer.append("path")
-      .attr("class", "area")
-      .attr("clip-path", "url(#clip)")
-      .attr("d", area)
-      .attr("d", function(d) { return area(d.values); })
-      .style("fill", function(d) { return color(d.name); });
-  */
 }
 
 var updateChargesDebounced = debounce(updateCharges);
@@ -479,6 +431,11 @@ d3.select(window).on("hashchange", updateHash);
 d3.select("#fund_select").on("change", function() {
   fundCode = +this.value;
   update();
+});
+
+d3.select("#get_data_link").on("click", function () {
+  d3.event.preventDefault();
+  d3.select("#netid").node().focus();
 });
 
 updateHash();
