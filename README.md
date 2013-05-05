@@ -62,3 +62,13 @@ vi couch-cred.json
     to false in `couch-cred.json`, since nginx will be serving the static
     attachments.
 
+Todo
+----
+
+- Normalize charge amounts by number of users active in that semester
+- Update the links with "Showing data from # people", etc.
+- Add hover information for the stacked bars
+- Add description or disclaimer about login credentials and security
+- Fix date alignment of charts
+- Make a better project name
+- Put on GitHub
