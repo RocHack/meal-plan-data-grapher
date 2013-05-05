@@ -50,8 +50,8 @@ ddoc.views =
         fund = transaction.FundCode
         d = new Date transaction.TransactionDateTimeStr
         year = d.getFullYear()
-        dayOfYear = Math.round (d - new Date year, 0, 1) / 86400000
-        week = Math.round dayOfYear / 7
+        dayOfYear = Math.floor (d - new Date year, 0, 1) / 86400000
+        week = Math.floor dayOfYear / 7
         day = dayOfYear % 7
         minutes = d.getMinutes() + d.getHours() * 60
         key = [year, week, day, minutes]
@@ -71,8 +71,8 @@ ddoc.views =
         antivalue[location] = -amount
 
         emit [user, fund].concat(key), value
-        emit [user,    0].concat(key), antivalue
         emit [null, fund].concat(key), antivalue
+        emit [user,    0].concat(key), antivalue
         emit [null,    0].concat(key), value
 
     reduce: (keys, values, rereduce) ->
@@ -98,34 +98,38 @@ ddoc.views =
         fund = transaction.FundCode
         d = new Date transaction.TransactionDateTimeStr
         year = d.getFullYear()
-        dayOfYear = Math.round (d - new Date year, 0, 1) / 86400000
-        week = Math.round dayOfYear / 7
+        dayOfYear = Math.floor (d - new Date year, 0, 1) / 86400000
+        week = Math.floor dayOfYear / 7
         day = dayOfYear % 7
         key = [year, week, day]
         amount = -transaction.AmountInDollars
         # emit both with and without user, and fund code
         # make it negative so the wildcards cancel out
         emit [user, fund].concat(key), amount
-        emit [user,    0].concat(key), -amount
         emit [null, fund].concat(key), -amount
+        emit [user,    0].concat(key), -amount
         emit [null,    0].concat(key), amount
     reduce: '_sum'
 
+  # count the number of users who had transcations each month
+  # so the transaction amounts can be normalized
   population:
     map: (doc) ->
-      year2 = month2 = day2 = 0
+      user = doc.user
+      year2 = month2 = 0
       for transaction in doc.transactions
+        fund = transaction.FundCode
         d = new Date transaction.TransactionDateTimeStr
         year = d.getFullYear()
         month = d.getMonth()
-        day = d.getDate()
-        if day != day2 or month != month2 or year != year2
+        if month != month2 or year != year2
           year2 = year
           month2 = month
-          day2 = day
-          key = [transaction.FundCode, year, month, day]
-          emit [doc.user].concat(key)
-          emit [null].concat(key)
+          key = [year, month]
+          emit [user, fund].concat key
+          emit [null, fund].concat key
+          emit [user, 0].concat key
+          emit [null, 0].concat key
     reduce: '_count'
 
   last_fetch:

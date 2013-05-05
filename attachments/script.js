@@ -128,45 +128,85 @@ context.append("g")
     .attr("y", -6)
     .attr("height", height2 + 7);
 
-var fundCode = 1;
+var fundCode = 1,
+    populationTree;
+
+// get a normalizing divisor for the number of users who had data in a time
+// period including the given date
+function getPopulation(date) {
+  var year = date.getFullYear();
+  return 1; // disable for now. should make it by semester instead of by month
+  return populationTree[year] && populationTree[year][date.getMonth()] || 1;
+}
 
 // update the context graph
 function update() {
   var key = [user, fundCode];
+  var population, charges;
+
+  // do these two requests in parallel.
+  // process the results in gotChargesAll
+
+  // get user counts to normalize charges
+  couch("_view/population", {
+    group: true,
+    startkey: key,
+    endkey: key.concat({})
+  }, function(error, resp) {
+    if (error) {
+      showResponse({error: error});
+      return;
+    }
+    population = resp.rows;
+    if (charges) gotChargesAll(charges, population);
+  });
+
+  // get charge amounts
   couch("_view/charges_all", {
     group_level: 4,
     startkey: key,
     endkey: key.concat({})
-  }, gotChargesAll);
+  }, function(error, resp) {
+    if (error) {
+      showResponse({error: error});
+      return;
+    }
+    charges = resp.rows;
+    if (population) gotChargesAll(charges, population);
+  });
 }
 
-function gotChargesAll(error, resp) {
-  if (error) {
-    showResponse({error: error});
-    return;
-  }
+function gotChargesAll(charges, population) {
+  // construct a weird data structure for looking up population by year/month
+  populationTree = {};
+  population.forEach(function (row) {
+    var count = row.value,
+        year = row.key[2],
+        month = row.key[3],
+        months = populationTree[year] || (populationTree[year] = []);
+    if (month in months) months[month] += count;
+    else months[month] = count;
+  });
 
-  var data = resp.rows;
-
-  data.forEach(function(row) {
-    var year = row.key[2];
-    var week = row.key[3];
-    var day = row.key[4] || 0;
+  charges.forEach(function(row) {
+    var year = row.key[2],
+        week = row.key[3],
+        day = row.key[4] || 0;
     row.date = new Date(year, 0, 7 * week + day);
-    row.amount = Math.abs(row.value);
+    row.amount = Math.abs(row.value) / getPopulation(row.date);
   });
 
   if (!didBrush) {
-    x.domain(d3.extent(data.map(function(d) { return d.date; })));
+    x.domain(d3.extent(charges.map(function(d) { return d.date; })));
     x2.domain(x.domain());
   }
-  y2.domain([0, d3.max(data, function(d) { return d.amount; })]);
+  y2.domain([0, d3.max(charges, function(d) { return d.amount; })]);
 
   var d = new Date(),
       duration = 86400000 * 7;
       w = (x2(d) - x2(d - duration));
   var rect = contextBars.selectAll("rect")
-      .data(data);
+      .data(charges);
   rect.enter().append("rect");
   rect.attr("width", w)
       .attr("height", function(d) { return height2 - y2(d.amount); })
@@ -183,8 +223,8 @@ function updateCharges() {
       endDate = x.domain()[1],
       startYear = startDate.getFullYear(),
       endYear = endDate.getFullYear(),
-      startWeek = Math.round((startDate - new Date(startYear, 0, 1)) / 86400000 / 7),
-      endWeek = Math.round((endDate - new Date(endYear, 0, 1)) / 86400000 / 7);
+      startWeek = Math.ceil((startDate - new Date(startYear, 0, 1)) / 86400000 / 7),
+      endWeek = Math.ceil((endDate - new Date(endYear, 0, 1)) / 86400000 / 7);
 
   binWidth = 30 * width/svg.attr("width");
   binDuration = x.invert(binWidth) - x.domain()[0];
@@ -209,12 +249,12 @@ function updateCharges() {
   binDuration = binMinutes * 60000;
   binWidth = x(startDate) - x(startDate - binDuration);
 
-  couch("_view/charges", a={
+  // get charges amounts
+  couch("_view/charges", {
     group_level: 3 + granularity,
     startkey: [user, fundCode, startYear, startWeek],
     endkey: [user, fundCode, endYear, endWeek+1]
   }, gotCharges);
-  //console.log('getting', a.startkey, a.endkey, startDate, endDate);
 }
 
 function gotCharges(error, resp) {
@@ -274,6 +314,7 @@ function gotCharges(error, resp) {
     var total = 0;
     var values = rows.map(function(row) {
       var amount = Math.abs(row.value[location]) || 0;
+      if (amount) amount /= getPopulation(row.date);
       total += amount;
       return {
         date: row.date,
@@ -299,8 +340,7 @@ function gotCharges(error, resp) {
       } else {
         prevValue = {
           date: new Date(Math.floor(value.date/binDuration) * binDuration),
-          //date: value.date,
-          name: value.name, // no
+          name: value.name,
           amount: value.amount
         };
         values.push(prevValue);
