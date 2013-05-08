@@ -71,4 +71,3 @@ Todo
 - Add description or disclaimer about login credentials and security
 - Fix date alignment of charts
 - Make a better project name
-- Put on GitHub
